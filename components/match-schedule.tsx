@@ -829,6 +829,13 @@ export default function MatchSchedule({
       optimalSettings: { rate: 0.85, pitch: 1.05, volume: 1.0 }
     },
     {
+      code: "tl-PH",
+      name: "Filipino",
+      flag: "🇵🇭",
+      recommended: [],
+      optimalSettings: { rate: 0.9, pitch: 1.0, volume: 1.0 }
+    },
+    {
       code: "auto",
       name: "Auto Detect",
       flag: "🔍",
@@ -837,10 +844,8 @@ export default function MatchSchedule({
     },
   ]
 
-  // Function to auto detect language
+  // Function to auto detect language using advanced scoring system
   const detectLanguage = (text: string): string => {
-    // Simple detection based on character sets and common word patterns
-
     if (!text || text.trim().length < 3) {
       return "auto"; // Not enough text to detect language
     }
@@ -848,22 +853,41 @@ export default function MatchSchedule({
     // Normalize text - lowercase and trim
     const textToAnalyze = text.toLowerCase().trim();
 
-    // Check for different language scripts and character sets - This is most reliable
+    // Debug log
+    console.log("🔍 Detecting language for text:", textToAnalyze.substring(0, 100));
+
+    // Check for different language scripts and character sets first - Most reliable
 
     // Hebrew - Hebrew characters
     if (/[\u0590-\u05FF\uFB1D-\uFB4F]/.test(textToAnalyze)) {
+      console.log("✅ Detected Hebrew by script");
       return "he-IL";
+    }
+
+    // Russian and other Cyrillic script languages
+    if (/[\u0400-\u04FF]/.test(textToAnalyze)) {
+      console.log("✅ Detected Russian/Cyrillic by script");
+      return "ru-RU";
+    }
+
+    // Thai script
+    if (/[\u0E00-\u0E7F]/.test(textToAnalyze)) {
+      console.log("✅ Detected Thai by script");
+      return "th-TH";
     }
 
     // Arabic script languages
     if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(textToAnalyze)) {
       // Distinguish between Arabic, Farsi/Persian, and Urdu based on specific characters
       if (/[\u067E\u0686\u0698\u06AF\u06CC\u06F0-\u06F9]/.test(textToAnalyze) || /\b(است|فارسی|ایران)\b/.test(textToAnalyze)) {
+        console.log("✅ Detected Persian/Farsi by script");
         return "fa-IR"; // Persian/Farsi
       }
       if (/[\u0679\u0688\u0691\u06BA\u06BE\u06C1-\u06C3\u06D2]/.test(textToAnalyze) || /\b(اور|ہے|کے|میں|پاکستان)\b/.test(textToAnalyze)) {
+        console.log("✅ Detected Urdu by script");
         return "ur-PK"; // Urdu
       }
+      console.log("✅ Detected Arabic by script");
       return "ar-SA"; // Default to Arabic
     }
 
@@ -871,11 +895,13 @@ export default function MatchSchedule({
     if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f\uac00-\ud7af]/.test(textToAnalyze)) {
       // Japanese specific kana characters (hiragana & katakana)
       if (/[\u3040-\u309F\u30A0-\u30FF]/.test(textToAnalyze)) {
+        console.log("✅ Detected Japanese by script");
         return "ja-JP";
       }
 
       // Korean Hangul
       if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF]/.test(textToAnalyze)) {
+        console.log("✅ Detected Korean by script");
         return "ko-KR";
       }
 
@@ -883,141 +909,183 @@ export default function MatchSchedule({
       if (/[\u4e00-\u9fff\uf900-\ufaff]/.test(textToAnalyze)) {
         // Characters that differ between Simplified and Traditional
         if (/[国见话说对们还记没这事样经麽]/.test(textToAnalyze)) {
+          console.log("✅ Detected Simplified Chinese by script");
           return "zh-CN"; // Simplified
         }
         if (/[國見話說對們還記沒這事樣經麽]/.test(textToAnalyze)) {
+          console.log("✅ Detected Traditional Chinese by script");
           return "zh-TW"; // Traditional
         }
         // Default to Simplified Chinese if can't distinguish
+        console.log("✅ Detected Chinese (default Simplified) by script");
         return "zh-CN";
       }
     }
 
-    // Thai
-    if (/[\u0E00-\u0E7F]/.test(text)) {
-      return "th-TH";
+    // Hindi and other Devanagari script languages
+    if (/[\u0900-\u097F]/.test(textToAnalyze)) {
+      console.log("✅ Detected Hindi by script");
+      return "hi-IN";
     }
 
     // Bengali
-    if (/[\u0980-\u09FF]/.test(text)) {
+    if (/[\u0980-\u09FF]/.test(textToAnalyze)) {
+      console.log("✅ Detected Bengali by script");
       return "bn-BD";
     }
 
     // Tamil
-    if (/[\u0B80-\u0BFF]/.test(text)) {
+    if (/[\u0B80-\u0BFF]/.test(textToAnalyze)) {
+      console.log("✅ Detected Tamil by script");
       return "ta-IN";
     }
 
-    // Hindi and other Devanagari script languages
-    if (/[\u0900-\u097F]/.test(text)) {
-      return "hi-IN";
-    }
-
     // Greek
-    if (/[\u0370-\u03FF\u1F00-\u1FFF]/.test(text)) {
+    if (/[\u0370-\u03FF\u1F00-\u1FFF]/.test(textToAnalyze)) {
+      console.log("✅ Detected Greek by script");
       return "el-GR";
     }
 
-    // Vietnamese - check for Vietnamese specific characters and diacritical marks
-    if (/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/.test(text.toLowerCase())) {
-      return "vi-VN";
-    }
+    // For Latin script languages, use advanced scoring system
+    const scores: Record<string, number> = {
+      'fr-FR': 0,
+      'es-ES': 0,
+      'it-IT': 0,
+      'pt-BR': 0,
+      'de-DE': 0,
+      'en-US': 0,
+      'vi-VN': 0,
+      'id-ID': 0,
+      'ms-MY': 0,
+      'pl-PL': 0,
+      'nl-NL': 0,
+      'sv-SE': 0,
+      'tr-TR': 0,
+      'tl-PH': 0  // Filipino/Tagalog
+    };
 
-    // Russian and other Cyrillic script languages
-    if (/[\u0400-\u04FF]/.test(text)) {
-      return "ru-RU";
-    }
+    // Filipino/Tagalog scoring - add before other languages to avoid confusion with Vietnamese
+    if (/\b(ang|ng|sa|na|ay|mga|ako|ka|siya|kami|kayo|sila|ito|iyan|iyon|filipino|pilipinas|tagalog)\b/.test(textToAnalyze)) scores['tl-PH'] += 5;
+    if (/\b(kumusta|salamat|oo|hindi|paano|saan|kailan|sino|ano|bakit)\b/.test(textToAnalyze)) scores['tl-PH'] += 4;
+    if (/\b(maganda|mabuti|masaya|malaki|maliit|marami|konti|lahat|wala)\b/.test(textToAnalyze)) scores['tl-PH'] += 3;
 
-    // For Latin script languages, check for specific characters and common words
+    // French scoring - very specific patterns with penalty system
+    let frenchScore = 0;
+    if (/[àâçéèêëîïôùûüÿœæ]/.test(textToAnalyze)) frenchScore += 3;
+    if (/\b(le|la|les|un|une|des|du|de|et|est|sont|avec|pour|dans|sur|pas|cette|avoir|être)\b/.test(textToAnalyze)) frenchScore += 2;
+    if (/\b(bonjour|bonsoir|merci|oui|non|comment|pourquoi|quand|où|qui|que|français|france)\b/.test(textToAnalyze)) frenchScore += 5;
+    if (/\b(c'est|n'est|qu'il|qu'elle|d'un|d'une|l'on|j'ai|tu|nous|vous|ils|elles)\b/.test(textToAnalyze)) frenchScore += 4;
+    if (/\b(très|bien|alors|donc|voilà|ça|maintenant|toujours|jamais)\b/.test(textToAnalyze)) frenchScore += 3;
+    // Strong penalty if Italian patterns are found
+    if (/\b(sono|è|gli|della|delle|degli|zione|zioni|ciao|grazie|buon)\b/.test(textToAnalyze)) frenchScore -= 3;
+    scores['fr-FR'] = Math.max(0, frenchScore);
 
-    // German
-    if (/[äöüßÄÖÜ]/.test(text) || /\b(und|ist|das|ich|nicht|eine[nr]?|der|die|das|zu|den)\b/.test(text)) {
-      return "de-DE";
-    }
+    // Spanish scoring - unique patterns
+    if (/[ñáéíóúü¿¡]/.test(textToAnalyze)) scores['es-ES'] += 4;
+    if (/\b(el|la|los|las|es|son|está|están|de|que|en|un|una|por|para|con|como|pero)\b/.test(textToAnalyze)) scores['es-ES'] += 2;
+    if (/\b(hola|gracias|buenos|días|noches|señor|señora|muchas|favor|español|españa)\b/.test(textToAnalyze)) scores['es-ES'] += 4;
+    if (/¿.*?\?|¡.*?!/.test(textToAnalyze)) scores['es-ES'] += 5; // Spanish punctuation
 
-    // French
-    if ((/[àâçéèêëîïôùûüÿœæÀÂÇÉÈÊËÎÏÔÙÛÜŸŒÆ]/.test(text) &&
-        /\b(est|et|je|tu|il|elle|nous|vous|ils|elles|le|la|les|un|une|des)\b/.test(text)) ||
-       (/\b(sont|avez|cette|pour|dans|sur|avec|pas)\b/.test(text) &&
-        /[àâçéèêëîïôùû]/.test(text))) {
-      return "fr-FR";
-    }
+    // Italian scoring - more distinctive patterns with penalty system
+    let italianScore = 0;
+    if (/[àèéìíîòóùú]/.test(textToAnalyze)) italianScore += 3;
+    if (/\b(di|che|non|per|in|con|sono|sei|è|siamo|mi|ti|ci|della|delle|degli|anche|molto)\b/.test(textToAnalyze)) italianScore += 3;
+    if (/\b(ciao|grazie|buongiorno|buonasera|prego|scusi|come|stai|dove|quando|perché|italiano|italia)\b/.test(textToAnalyze)) italianScore += 6;
+    if (/\b(gli|glie|zione|zioni|mente)\b/.test(textToAnalyze)) italianScore += 5;
+    if (/\b(bene|bello|bella|tutto|tutti|sempre|mai|già|ancora|proprio)\b/.test(textToAnalyze)) italianScore += 4;
+    if (/\b(sono|è)\b/.test(textToAnalyze)) italianScore += 4; // Very Italian-specific
+    // Strong penalty if French patterns are found
+    if (/\b(c'est|n'est|qu'il|qu'elle|d'un|d'une|très|alors|donc|voilà|ça|bonjour|merci)\b/.test(textToAnalyze)) italianScore -= 3;
+    // Strong penalty if English patterns are found
+    if (/\b(the|and|is|that|you|with|this|will|can|would|could|should|I'm|you're|he's|she's|it's|don't|won't|can't)\b/.test(textToAnalyze)) italianScore -= 3;
+    if (/\b(english|hello|thank|please|welcome|good|morning|evening|night|yes|no|what|when|where|why|how)\b/.test(textToAnalyze)) italianScore -= 4;
+    scores['it-IT'] = Math.max(0, italianScore);
 
-    // Spanish
-    if ((/[áéíóúüñÁÉÍÓÚÜÑ¿¡]/.test(text) &&
-        /\b(el|la|los|las|es|son|tiene[ns]?|está[ns]?)\b/.test(text)) ||
-       (/\b(para|con|por|como|pero|bien|gracias|hola|y|o|muy)\b/.test(text) &&
-        /[áéíóúñ]/.test(text))) {
-      return "es-ES";
-    }
+    // Portuguese scoring - unique features
+    if (/[ãõçáéíóúâêôà]/.test(textToAnalyze)) scores['pt-BR'] += 3;
+    if (/\b(de|que|e|o|da|em|um|uma|para|com|não|por|os|as|são|você|este|esta)\b/.test(textToAnalyze)) scores['pt-BR'] += 2;
+    if (/\b(olá|obrigad[oa]|tudo|muito|português|brasil|portugal|como|está|onde|quando|porque)\b/.test(textToAnalyze)) scores['pt-BR'] += 4;
+    if (/\b(ção|ções|ão|ões|mente)\b/.test(textToAnalyze)) scores['pt-BR'] += 3;
 
-    // Italian
-    if ((/[àèéìíîòóùúÀÈÉÌÍÎÒÓÙÚ]/.test(text) &&
-        /\b(di|che|non|per|in|con|sono|sei|è|siamo|mi|ti|ci)\b/.test(text)) ||
-       (/\b(sono|questo|questa|cosa|bene|grazie|ciao|buon[ao]|vita)\b/.test(text) &&
-        /[àèéìòù]/.test(text))) {
-      return "it-IT";
-    }
+    // German scoring - distinctive features
+    if (/[äöüß]/.test(textToAnalyze)) scores['de-DE'] += 5;
+    if (/\b(und|ist|das|ich|nicht|der|die|zu|den|mit|von|auf|für|werden|haben|sein)\b/.test(textToAnalyze)) scores['de-DE'] += 2;
+    if (/\b(aber|oder|wenn|dann|auch|nur|noch|schon|sehr|gut|deutsch|deutschland)\b/.test(textToAnalyze)) scores['de-DE'] += 3;
+    if (/\b(eine[nr]?|einem|eines)\b/.test(textToAnalyze)) scores['de-DE'] += 2;
 
-    // Portuguese
-    if ((/[ãõñáéíóúâêôàçÃÕÑÁÉÍÓÚÂÊÔÀÇ]/.test(text) &&
-        /\b(de|que|e|o|da|em|um|uma|para|com|não|por|os|as)\b/.test(text)) ||
-       (/\b(são|você|este|esta|isso|bem|obrigad[oa]|tudo|muito)\b/.test(text) &&
-        /[ãõáéíóúâêô]/.test(text))) {
-      return "pt-BR";
-    }
+    // English scoring - more distinctive patterns with penalty system
+    let englishScore = 0;
+    if (/\b(the|and|is|in|to|have|that|for|you|with|on|at|as|are|this|will|can|would|could|should)\b/.test(textToAnalyze)) englishScore += 2; // Increased from 1
+    if (/\b(english|hello|thank|please|welcome|good|morning|evening|night|yes|no|what|when|where|why|how)\b/.test(textToAnalyze)) englishScore += 4; // Increased from 3
+    if (/\b(about|because|before|after|through|during|without|between|against|under|over|above|below)\b/.test(textToAnalyze)) englishScore += 3; // English prepositions
+    if (/\b(something|anything|everything|nothing|someone|anyone|everyone|nobody)\b/.test(textToAnalyze)) englishScore += 4; // English compound words
+    if (/\b(I'm|you're|he's|she's|it's|we're|they're|don't|won't|can't|shouldn't|wouldn't)\b/.test(textToAnalyze)) englishScore += 5; // English contractions
+    // Penalty if Italian patterns are found
+    if (/\b(sono|è|gli|della|delle|degli|zione|zioni|ciao|grazie|buon|molto|anche|dove|quando|perché)\b/.test(textToAnalyze)) englishScore -= 3;
+    // Penalty if other Romance language patterns are found
+    if (/\b(c'est|très|alors|donc|bonjour|merci|hola|gracias|español|olá|obrigado|português)\b/.test(textToAnalyze)) englishScore -= 2;
+    scores['en-US'] = Math.max(0, englishScore);
 
-    // Polish
-    if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(text) ||
-       (/\b(jest|nie|to|się|na|i|w|z|do|są|co|jak)\b/.test(text) &&
-        /[ąćęłńóśźż]/.test(text))) {
-      return "pl-PL";
-    }
+    // Vietnamese scoring - specific diacritics and words
+    if (/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/.test(textToAnalyze)) scores['vi-VN'] += 4;
+    if (/\b(là|của|và|có|được|này|đó|cho|với|từ|trong|về|một|các|những|người|việt|nam|tiếng)\b/.test(textToAnalyze)) scores['vi-VN'] += 3;
 
-    // Dutch
-    if ((/\b(het|een|ij|dat|niet|en|de|van|in|een|op|te|zijn)\b/.test(text.toLowerCase()) &&
-        /[ijùë]/.test(text)) || /\b(geen|deze|die|veel|voor|maar|wel|ook|nog|naar)\b/.test(text.toLowerCase())) {
-      return "nl-NL";
-    }
+    // Indonesian vs Malay - improved distinction
+    if (/\b(dan|yang|di|itu|dengan|untuk|tidak|ini|dari|dalam|akan)\b/.test(textToAnalyze)) {
+      // Indonesian specific
+      if (/\b(adalah|sudah|belum|sedang|bisa|juga|hanya|sangat|sekali|indonesia|bahasa indonesia)\b/.test(textToAnalyze)) scores['id-ID'] += 4;
+      if (/\b(ter[a-z]+|ber[a-z]+|me[a-z]+|pe[a-z]+an)\b/.test(textToAnalyze)) scores['id-ID'] += 2;
 
-    // Swedish
-    if (/[åäöÅÄÖ]/.test(text) && /\b(och|att|det|som|en|är|på|för|med|jag|har|inte)\b/.test(text.toLowerCase())) {
-      return "sv-SE";
-    }
+      // Malay specific
+      if (/\b(boleh|hendak|mahu|nak|pula|amat|malaysia|bahasa malaysia|bahasa melayu)\b/.test(textToAnalyze)) scores['ms-MY'] += 4;
+      if (/\b(anda|awak)\b/.test(textToAnalyze)) scores['ms-MY'] += 2;
 
-    // Turkish
-    if (/[çğıöşüÇĞİÖŞÜ]/.test(text) || /\b(bir|bu|ve|için|ile|ben|sen|o|biz|siz|onlar)\b/.test(text.toLowerCase())) {
-      return "tr-TR";
-    }
-
-    // Indonesian/Malay
-    if (/\b(dan|yang|di|itu|dengan|untuk|tidak|ini|dari|dalam|akan)\b/.test(text.toLowerCase())) {
-      // Try to distinguish between Indonesian and Malay based on specific words
-      if (/\b(adalah|saya|kami|mereka|sudah|belum|atau|sedang)\b/.test(text.toLowerCase())) {
-        return "id-ID"; // Indonesian
+      // Common words get lower scores
+      if (/\b(saya|kamu|mereka|kami)\b/.test(textToAnalyze)) {
+        scores['id-ID'] += 1;
+        scores['ms-MY'] += 1;
       }
-      if (/\b(saya|anda|boleh|tidak|itu|ini|dan|atau|untuk)\b/.test(text.toLowerCase())) {
-        return "ms-MY"; // Malay
-      }
-      return "id-ID"; // Default to Indonesian
     }
 
-    // English - check last as it might overlap with other languages
-    // Look for common English words
-    if (/\b(the|and|is|in|to|have|that|for|you|with|on|at|as|are)\b/.test(text.toLowerCase())) {
-      // Try to distinguish between American and British English
-      if (/\b(color|favorite|center|realize|program|flavor|gray|analyze)\b/.test(text.toLowerCase())) {
-        return "en-US"; // American English
-      }
-      if (/\b(colour|favourite|centre|realise|programme|flavour|grey|analyse)\b/.test(text.toLowerCase())) {
-        return "en-GB"; // British English
-      }
-      return "en-US"; // Default to American English
-    }
+    // Polish scoring
+    if (/[ąćęłńóśźż]/.test(textToAnalyze)) scores['pl-PL'] += 4;
+    if (/\b(jest|nie|to|się|na|i|w|z|do|są|co|jak|polski|polska)\b/.test(textToAnalyze)) scores['pl-PL'] += 3;
 
-    // Default to English US if we can't detect the language
-    return "en-US";
+    // Dutch scoring
+    if (/\b(het|een|dat|niet|en|de|van|in|op|te|zijn|nederlands|nederland)\b/.test(textToAnalyze)) scores['nl-NL'] += 2;
+    if (/\b(geen|deze|die|veel|voor|maar|wel|ook|nog|naar)\b/.test(textToAnalyze)) scores['nl-NL'] += 3;
+    if (/[ij]/.test(textToAnalyze) && /\b(ij|zijn|mijn|zijn)\b/.test(textToAnalyze)) scores['nl-NL'] += 2;
+
+    // Swedish scoring
+    if (/[åäö]/.test(textToAnalyze)) scores['sv-SE'] += 4;
+    if (/\b(och|att|det|som|en|är|på|för|med|jag|har|inte|svenska|sverige)\b/.test(textToAnalyze)) scores['sv-SE'] += 3;
+
+    // Turkish scoring
+    if (/[çğıöşü]/.test(textToAnalyze)) scores['tr-TR'] += 4;
+    if (/\b(bir|bu|ve|için|ile|ben|sen|o|biz|siz|onlar|türkçe|türkiye)\b/.test(textToAnalyze)) scores['tr-TR'] += 3;
+
+    // Find the language with highest score
+    const maxScore = Math.max(...Object.values(scores));
+    const detectedLangs = Object.entries(scores).filter(([_, score]) => score === maxScore && score > 0);
+
+    console.log("📊 Language scores:", scores);
+    console.log("🏆 Max score:", maxScore, "Languages:", detectedLangs.map(([lang]) => lang));
+
+    if (detectedLangs.length === 1 && maxScore >= 2) {
+      const detectedLang = detectedLangs[0][0];
+      console.log(`✅ Detected ${detectedLang} with confidence score: ${maxScore}`);
+      return detectedLang;
+    } else if (detectedLangs.length > 1) {
+      console.log(`⚠️ Multiple languages detected with same score (${maxScore}):`, detectedLangs.map(([lang]) => lang));
+      // Return the first one, but this indicates ambiguous text
+      return detectedLangs[0][0];
+    } else {
+      console.log("❌ No language detected with sufficient confidence, returning auto");
+      return "auto";
+    }
   };
+
+
 
   // Load available voices when component mounts or when browser updates them
   useEffect(() => {
@@ -1027,6 +1095,20 @@ export default function MatchSchedule({
     const loadVoices = () => {
       const voices = synth.getVoices()
       setAvailableVoices(voices)
+
+      // Debug: Log all available voices grouped by language
+      console.log("=== AVAILABLE VOICES BY LANGUAGE ===");
+      const voicesByLang = voices.reduce((acc, voice) => {
+        const lang = voice.lang;
+        if (!acc[lang]) acc[lang] = [];
+        acc[lang].push(voice.name);
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      Object.keys(voicesByLang).sort().forEach(lang => {
+        console.log(`${lang}: ${voicesByLang[lang].join(', ')}`);
+      });
+      console.log("=====================================");
 
       // Set default voice if not already set
       if (!selectedVoice && voices.length > 0) {
@@ -1107,9 +1189,11 @@ export default function MatchSchedule({
 
     // Determine language to use - always auto-detect for AI responses to ensure proper pronunciation
     const detectedLang = detectLanguage(cleanText);
-    const langToUse = detectedLang;
 
-    // Save detected language to state for UI feedback
+    // If detection returns "auto", fallback to English for TTS
+    const langToUse = detectedLang === "auto" ? "en-US" : detectedLang;
+
+    // Save detected language to state for UI feedback (keep original detection result)
     setLastDetectedLanguage(detectedLang);
 
     // Get language info and name
@@ -1118,6 +1202,7 @@ export default function MatchSchedule({
     const langFlag = langInfo?.flag || '🔍';
 
     console.log(`Speaking text in ${langName} (${langToUse}):`, cleanText.substring(0, 50));
+    console.log(`Original detection result: ${detectedLang}`);
 
     // If using Google TTS and we're not in development mode, use that
     if (useGoogleTTS && process.env.NODE_ENV !== 'development' && false) {
@@ -4107,12 +4192,109 @@ Việc của bạn là hiểu ý định của người dùng và thực hiện 
                 Kiểm tra tiếng Việt
               </Button>
               <Button
-                onClick={() => speakText("Hello, this is a test voice. Can you hear me clearly?")}
+                onClick={() => speakText("Hello, this is a test voice. Can you hear me clearly? I'm speaking English and it's working perfectly.")}
                 className="w-full"
                 variant="outline"
               >
                 Test English
               </Button>
+            </div>
+
+            {/* Language Detection Test Buttons */}
+            <div className="space-y-2 pt-2 border-t border-gray-200">
+              <Label className="flex items-center">
+                <Languages className="h-4 w-4 mr-2" /> Test phát hiện ngôn ngữ
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Bonjour, comment allez-vous? Je suis très heureux de vous parler en français.")}
+                  className="justify-start text-xs"
+                >
+                  🇫🇷 Test Français
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Guten Tag, wie geht es Ihnen? Ich spreche sehr gerne Deutsch mit Ihnen.")}
+                  className="justify-start text-xs"
+                >
+                  🇩🇪 Test Deutsch
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Hola, ¿cómo está usted? Me gusta mucho hablar español con usted.")}
+                  className="justify-start text-xs"
+                >
+                  🇪🇸 Test Español
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Ciao, come stai? Mi piace molto parlare italiano con te.")}
+                  className="justify-start text-xs"
+                >
+                  🇮🇹 Test Italiano
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Olá, como você está? Eu gosto muito de falar português com você.")}
+                  className="justify-start text-xs"
+                >
+                  🇧🇷 Test Português
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Привет, как дела? Мне очень нравится говорить по-русски.")}
+                  className="justify-start text-xs"
+                >
+                  🇷🇺 Test Русский
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("สวัสดีครับ ผมชื่อ AI ผมพูดภาษาไทยได้ครับ")}
+                  className="justify-start text-xs"
+                >
+                  🇹🇭 Test ไทย
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Saya bisa berbahasa Indonesia dengan baik. Terima kasih sudah menggunakan sistem ini.")}
+                  className="justify-start text-xs"
+                >
+                  🇮🇩 Test Indonesia
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Saya boleh bercakap bahasa Malaysia dengan baik. Terima kasih kerana menggunakan sistem ini.")}
+                  className="justify-start text-xs"
+                >
+                  🇲🇾 Test Malaysia
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Dzień dobry, bardzo lubię mówić po polsku. To jest test języka polskiego.")}
+                  className="justify-start text-xs"
+                >
+                  🇵🇱 Test Polski
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => speakText("Kumusta ka? Ako ay masaya na makausap ka sa Filipino. Salamat sa paggamit ng sistema na ito.")}
+                  className="justify-start text-xs"
+                >
+                  🇵🇭 Test Filipino
+                </Button>
+              </div>
             </div>
 
             {/* Voice presets for quick selection */}
