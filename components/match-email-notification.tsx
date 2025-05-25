@@ -131,15 +131,33 @@ export default function MatchEmailNotification({ match, onClose }: MatchEmailNot
         setEmailConfig(JSON.parse(savedEmailConfig))
       }
 
-      // Load email history
+      // Load email history with date parsing - filter by current match
       const savedEmailHistory = localStorage.getItem('fchcmust-email-history')
       if (savedEmailHistory) {
-        setEmailHistory(JSON.parse(savedEmailHistory))
+        const parsedHistory = JSON.parse(savedEmailHistory)
+        // Convert timestamp strings back to Date objects and filter by matchId
+        const historyWithDates = parsedHistory
+          .map((entry: any) => ({
+            ...entry,
+            timestamp: new Date(entry.timestamp),
+            matchId: entry.matchId || 'unknown' // Handle old entries without matchId
+          }))
+          .filter((entry: any) => entry.matchId === match.id) // Only load history for current match
+
+        setEmailHistory(historyWithDates)
+        console.log('📂 Loading email history for match:', match.id)
+        console.log('📂 Found', historyWithDates.length, 'entries for this match')
+        console.log('📂 Match details:', `${match.homeTeam} vs ${match.awayTeam}`)
+        if (historyWithDates.length > 0) {
+          console.log('📂 Latest history entry:', historyWithDates[0])
+        }
+      } else {
+        console.log('📂 No email history found in localStorage')
       }
     } catch (error) {
       console.error('Error loading data from localStorage:', error)
     }
-  }, [])
+  }, [match.id]) // Add match.id dependency to reload when switching matches
 
   // Save contacts to localStorage whenever contacts change
   useEffect(() => {
@@ -159,14 +177,7 @@ export default function MatchEmailNotification({ match, onClose }: MatchEmailNot
     }
   }, [emailConfig])
 
-  // Save email history to localStorage whenever history changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('fchcmust-email-history', JSON.stringify(emailHistory))
-    } catch (error) {
-      console.error('Error saving email history to localStorage:', error)
-    }
-  }, [emailHistory])
+  // Note: Email history is saved directly in saveEmailHistory function to avoid overwriting global history
 
   // Predefined email templates
   const emailTemplates: EmailTemplate[] = [
@@ -839,6 +850,7 @@ Vui lòng kiểm tra cấu hình và thử lại.`)
     const historyEntry: EmailHistory = {
       id: Date.now().toString(),
       timestamp: new Date(),
+      matchId: match.id, // Add matchId to link history to specific match
       match: {
         homeTeam: match.homeTeam,
         awayTeam: match.awayTeam,
@@ -855,7 +867,25 @@ Vui lòng kiểm tra cấu hình và thử lại.`)
       totalFailed: failedCount
     }
 
-    setEmailHistory(prev => [historyEntry, ...prev])
+    console.log('💾 Saving email history entry for match:', match.id, historyEntry)
+
+    // Update current match history
+    setEmailHistory(prev => {
+      const newHistory = [historyEntry, ...prev]
+      console.log('💾 New history length for this match:', newHistory.length)
+      return newHistory
+    })
+
+    // Also save to global localStorage (all matches)
+    try {
+      const savedEmailHistory = localStorage.getItem('fchcmust-email-history')
+      const allHistory = savedEmailHistory ? JSON.parse(savedEmailHistory) : []
+      const updatedAllHistory = [historyEntry, ...allHistory]
+      localStorage.setItem('fchcmust-email-history', JSON.stringify(updatedAllHistory))
+      console.log('💾 Email history saved to localStorage. Total entries:', updatedAllHistory.length)
+    } catch (error) {
+      console.error('❌ Error saving email history to localStorage:', error)
+    }
   }
 
   // Send emails using EmailJS
@@ -1335,6 +1365,91 @@ Vui lòng kiểm tra cấu hình và thử lại.`)
     }
   }
 
+  // Debug localStorage
+  const debugLocalStorage = () => {
+    try {
+      console.log('\n🔍 DEBUG LOCALSTORAGE:')
+
+      // Check contacts
+      const savedContacts = localStorage.getItem('fchcmust-email-contacts')
+      console.log('📧 Contacts in localStorage:', savedContacts ? JSON.parse(savedContacts).length : 0)
+
+      // Check email config
+      const savedEmailConfig = localStorage.getItem('fchcmust-email-config')
+      console.log('⚙️ Email config in localStorage:', savedEmailConfig ? 'Yes' : 'No')
+
+      // Check email history (all matches)
+      const savedEmailHistory = localStorage.getItem('fchcmust-email-history')
+      const allHistory = savedEmailHistory ? JSON.parse(savedEmailHistory) : []
+      console.log('📜 Total email history in localStorage:', allHistory.length)
+
+      // Filter history for current match
+      const currentMatchHistory = allHistory.filter((entry: any) => entry.matchId === match.id)
+      console.log(`📜 Email history for current match (${match.id}):`, currentMatchHistory.length)
+
+      if (allHistory.length > 0) {
+        console.log('📜 All history entries by match:')
+        const historyByMatch = allHistory.reduce((acc: any, entry: any) => {
+          const matchKey = entry.matchId || 'unknown'
+          if (!acc[matchKey]) acc[matchKey] = []
+          acc[matchKey].push(entry)
+          return acc
+        }, {})
+
+        Object.keys(historyByMatch).forEach(matchId => {
+          const entries = historyByMatch[matchId]
+          console.log(`  Match ${matchId}: ${entries.length} entries`)
+          if (entries.length > 0) {
+            const latest = entries[0]
+            console.log(`    Latest: ${latest.match.homeTeam} vs ${latest.match.awayTeam} - ${latest.timestamp}`)
+          }
+        })
+      }
+
+      if (currentMatchHistory.length > 0) {
+        console.log(`📜 Current match history details:`)
+        currentMatchHistory.slice(0, 3).forEach((entry: any, index: number) => {
+          console.log(`  ${index + 1}. ${entry.match.homeTeam} vs ${entry.match.awayTeam} - ${entry.timestamp}`)
+          console.log(`     Recipients: ${entry.recipients.length}, Sent: ${entry.totalSent}, Failed: ${entry.totalFailed}`)
+        })
+      }
+
+      // Check current state
+      console.log('\n🔍 CURRENT STATE:')
+      console.log('📧 Current contacts:', contacts.length)
+      console.log('📜 Current email history in state:', emailHistory.length)
+      console.log('🎯 Current match ID:', match.id)
+      console.log('🎯 Current match:', `${match.homeTeam} vs ${match.awayTeam}`)
+
+      if (emailHistory.length > 0) {
+        console.log('📜 Latest history in state:')
+        emailHistory.slice(0, 3).forEach((entry, index) => {
+          console.log(`  ${index + 1}. ${entry.match.homeTeam} vs ${entry.match.awayTeam} - ${entry.timestamp}`)
+          console.log(`     Recipients: ${entry.recipients.length}, Sent: ${entry.totalSent}, Failed: ${entry.totalFailed}`)
+        })
+      }
+
+      // Show summary
+      const currentHistoryCount = emailHistory.length
+
+      alert(`🔍 Debug LocalStorage:\n\n📧 Contacts: ${savedContacts ? JSON.parse(savedContacts).length : 0}\n📜 Total History: ${allHistory.length}\n📜 Current Match History: ${currentMatchHistory.length}\n📜 History in State: ${currentHistoryCount}\n\n🎯 Current Match: ${match.homeTeam} vs ${match.awayTeam}\n🎯 Match ID: ${match.id}\n\n${currentMatchHistory.length === 0 ? '❌ Không có lịch sử cho trận đấu này!' : '✅ Có lịch sử cho trận đấu này'}\n\nKiểm tra Console để xem chi tiết!`)
+
+    } catch (error) {
+      console.error('❌ Error debugging localStorage:', error)
+      alert(`❌ Lỗi khi debug localStorage:\n\n${error}`)
+    }
+  }
+
+  // Clear email history
+  const clearEmailHistory = () => {
+    if (confirm('🗑️ Bạn có chắc muốn xóa toàn bộ lịch sử email?\n\nHành động này không thể hoàn tác!')) {
+      setEmailHistory([])
+      localStorage.removeItem('fchcmust-email-history')
+      console.log('🗑️ Email history cleared')
+      alert('✅ Đã xóa toàn bộ lịch sử email!')
+    }
+  }
+
   // Filter contacts based on search term
   const filteredContacts = contacts.filter(contact => {
     if (!searchTerm) return true
@@ -1413,6 +1528,14 @@ Vui lòng kiểm tra cấu hình và thử lại.`)
                   className="flex items-center gap-2 text-purple-600 border-purple-200 hover:bg-purple-50"
                 >
                   🌐 EmailJS Dashboard
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={debugLocalStorage}
+                  className="flex items-center gap-2 text-gray-600 border-gray-200 hover:bg-gray-50"
+                >
+                  🔍 Debug Storage
                 </Button>
               </>
             )}
