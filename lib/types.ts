@@ -78,6 +78,12 @@ export interface Match {
     }[]
   }
   events?: MatchEvents
+  teamOfTheMatch?: {
+    matchId: string
+    formation: string
+    selectedPlayers: any[] // Will be properly typed in component
+    savedAt: string
+  }
 }
 
 export interface PlayerDiscipline {

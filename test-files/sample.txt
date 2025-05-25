@@ -1,0 +1,17 @@
+Đây là file test để kiểm tra tính năng xem trước file.
+
+Nội dung này sẽ được hiển thị chính xác như văn bản gốc.
+
+Các dòng text này:
+- Dòng 1: Thông tin cơ bản
+- Dòng 2: Dữ liệu quan trọng  
+- Dòng 3: Kết quả phân tích
+
+Định dạng được giữ nguyên:
+    - Thụt lề
+    - Khoảng cách
+    - Ký tự đặc biệt: @#$%^&*()
+
+Tiếng Việt có dấu: àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ
+
+Đây là nội dung để test xem trước file!

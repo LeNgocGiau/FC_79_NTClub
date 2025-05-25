@@ -16,6 +16,9 @@ import SubstitutionHistory from "@/components/substitution-history"
 import NoteManager from "@/components/note-manager"
 import MatchSchedule from "@/components/match-schedule"
 import PlayerDisciplineManager from "@/components/player-discipline"
+import CursorEffects from "@/components/cursor-effects"
+import CursorSettings from "@/components/cursor-settings"
+
 import type { Player, Position, Team, Formation, DrawingMode, Substitution, Note, Match, PlayerDiscipline, FieldType } from "@/lib/types"
 import { generatePlayersFromFormation } from "@/lib/formations"
 
@@ -68,6 +71,13 @@ export default function TacticBoard() {
   const [playerDisciplines, setPlayerDisciplines] = useState<PlayerDiscipline[]>([])
   const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false)
 
+  // Cursor effects state
+  const [cursorEffectsEnabled, setCursorEffectsEnabled] = useState(true)
+  const [cursorEffectTypes, setCursorEffectTypes] = useState<string[]>(['rainbow'])
+  const [cursorIntensity, setCursorIntensity] = useState<'low' | 'medium' | 'high'>('medium')
+  const [cursorColors, setCursorColors] = useState<string[]>(['#ff0000', '#ff4500', '#ffa500', '#ffff00', '#00ff00', '#0080ff', '#8000ff'])
+  const [cursorCustomColors, setCursorCustomColors] = useState<string[]>([])
+
   // Tải dữ liệu kỷ luật cầu thủ từ localStorage khi khởi động
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -87,14 +97,14 @@ export default function TacticBoard() {
 
   const handleFormationChange = (formation: Formation) => {
     setSelectedFormation(formation)
-    
+
     if (activeTeamId === "home") {
       // Update home team formation
       const newPlayers = generatePlayersFromFormation(formation, homeTeam.color, "home", selectedFieldType)
-      
+
       // Keep the substitutes
       const substitutes = homeTeam.players.filter((p) => p.isSubstitute)
-      
+
       setHomeTeam({
         ...homeTeam,
         formation: formation,
@@ -103,10 +113,10 @@ export default function TacticBoard() {
     } else {
       // Update away team formation
       const newPlayers = generatePlayersFromFormation(formation, awayTeam.color, "away", selectedFieldType)
-      
+
       // Keep the substitutes
       const substitutes = awayTeam.players.filter((p) => p.isSubstitute)
-      
+
       setAwayTeam({
         ...awayTeam,
         formation: formation,
@@ -117,7 +127,7 @@ export default function TacticBoard() {
 
   const handleFieldTypeChange = (fieldType: FieldType) => {
     setSelectedFieldType(fieldType)
-    
+
     // Lấy đội hình mặc định dựa trên loại sân
     let defaultFormation: Formation;
     switch (fieldType) {
@@ -130,10 +140,10 @@ export default function TacticBoard() {
       default:
         defaultFormation = "4-4-2";
     }
-    
+
     // Cập nhật đội hình và vị trí cầu thủ cho đội đang chọn
     setSelectedFormation(defaultFormation)
-    
+
     const activeTeam = activeTeamId === "home" ? homeTeam : awayTeam;
     const newPlayers = generatePlayersFromFormation(defaultFormation, activeTeam.color, activeTeamId, fieldType);
     const substitutes = activeTeam.players.filter((p) => p.isSubstitute);
@@ -296,7 +306,7 @@ export default function TacticBoard() {
   // Xử lý kỷ luật cầu thủ
   const handleDisciplineChange = (disciplines: PlayerDiscipline[]) => {
     setPlayerDisciplines(disciplines)
-    
+
     // Lưu vào localStorage để đảm bảo nhất quán dữ liệu khi chuyển tab
     if (disciplines.length > 0) {
       localStorage.setItem('playerDisciplines', JSON.stringify(disciplines))
@@ -413,7 +423,7 @@ export default function TacticBoard() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="mb-6">
                       <h2 className="text-lg font-semibold mb-2">Loại sân</h2>
                       <FieldTypeSelector selectedFieldType={selectedFieldType} onFieldTypeChange={handleFieldTypeChange} />
@@ -421,10 +431,10 @@ export default function TacticBoard() {
 
                     <div className="mb-6">
                       <h2 className="text-lg font-semibold mb-2">Sơ đồ chiến thuật</h2>
-                      <FormationSelector 
-                        selectedFormation={homeTeam.formation || selectedFormation} 
-                        onFormationChange={handleFormationChange} 
-                        fieldType={selectedFieldType} 
+                      <FormationSelector
+                        selectedFormation={homeTeam.formation || selectedFormation}
+                        onFormationChange={handleFormationChange}
+                        fieldType={selectedFieldType}
                       />
                     </div>
                   </TabsContent>
@@ -443,7 +453,7 @@ export default function TacticBoard() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="mb-6">
                       <h2 className="text-lg font-semibold mb-2">Loại sân</h2>
                       <FieldTypeSelector selectedFieldType={selectedFieldType} onFieldTypeChange={handleFieldTypeChange} />
@@ -451,10 +461,10 @@ export default function TacticBoard() {
 
                     <div className="mb-6">
                       <h2 className="text-lg font-semibold mb-2">Sơ đồ chiến thuật</h2>
-                      <FormationSelector 
+                      <FormationSelector
                         selectedFormation={awayTeam.formation || selectedFormation}
-                        onFormationChange={handleFormationChange} 
-                        fieldType={selectedFieldType} 
+                        onFormationChange={handleFormationChange}
+                        fieldType={selectedFieldType}
                       />
                     </div>
                   </TabsContent>
@@ -514,6 +524,8 @@ export default function TacticBoard() {
               onDeleteMatch={handleDeleteMatch}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
+              onUpdateHomeTeam={setHomeTeam}
+              onUpdateAwayTeam={setAwayTeam}
             />
           </TabsContent>
         </Tabs>
@@ -586,6 +598,32 @@ export default function TacticBoard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Cursor Effects */}
+      {cursorEffectsEnabled && (
+        <CursorEffects
+          effectTypes={cursorEffectTypes}
+          intensity={cursorIntensity}
+          colors={cursorColors}
+          customColors={cursorCustomColors}
+        />
+      )}
+
+      {/* Cursor Settings */}
+      <CursorSettings
+        effectTypes={cursorEffectTypes}
+        intensity={cursorIntensity}
+        colors={cursorColors}
+        customColors={cursorCustomColors}
+        enabled={cursorEffectsEnabled}
+        onEffectTypesChange={setCursorEffectTypes}
+        onIntensityChange={(intensity) => setCursorIntensity(intensity as any)}
+        onColorsChange={setCursorColors}
+        onCustomColorsChange={setCursorCustomColors}
+        onToggle={setCursorEffectsEnabled}
+      />
+
+
     </div>
   )
 }

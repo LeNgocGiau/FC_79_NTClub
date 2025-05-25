@@ -1,0 +1,32 @@
+Đây là file Word test để kiểm tra tính năng xem trước.
+
+TIÊU ĐỀ CHÍNH
+==============
+
+1. Giới thiệu
+   - Đây là phần giới thiệu
+   - Nội dung được giữ nguyên định dạng
+   - Không bị tự động format
+
+2. Nội dung chính
+   a) Phần A: Thông tin cơ bản
+      - Dữ liệu quan trọng
+      - Kết quả phân tích
+      
+   b) Phần B: Chi tiết
+      - Mô tả chi tiết
+      - Ví dụ cụ thể
+
+3. Kết luận
+   Đây là phần kết luận của tài liệu.
+
+Định dạng đặc biệt:
+• Bullet point 1
+• Bullet point 2
+• Bullet point 3
+
+Tiếng Việt có dấu: àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ
+
+Ký tự đặc biệt: @#$%^&*()_+-=[]{}|;:'"<>,.?/
+
+Đây là nội dung để test xem trước file Word!
