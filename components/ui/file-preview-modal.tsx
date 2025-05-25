@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { X, FileText, Image as ImageIcon, Download, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, RotateCcw, Settings } from 'lucide-react'
+import { X, FileText, Image as ImageIcon, Download, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, RotateCcw, Settings, Maximize, Minimize, FastForward, Rewind } from 'lucide-react'
 
 
 interface FilePreviewModalProps {
@@ -46,6 +46,10 @@ export function FilePreviewModal({
   const [volume, setVolume] = useState(1)
   const [isMuted, setIsMuted] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  // Video player states
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -132,6 +136,30 @@ export function FilePreviewModal({
             e.preventDefault()
             toggleMute()
           }
+        } else if (fileType === 'video') {
+          // Video keyboard shortcuts
+          if (e.key === ' ') {
+            e.preventDefault()
+            toggleVideoPlayPause()
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            skipVideoTime(-10)
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            skipVideoTime(10)
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            handleVideoVolumeChange(Math.min(1, volume + 0.1))
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            handleVideoVolumeChange(Math.max(0, volume - 0.1))
+          } else if (e.key === 'm' || e.key === 'M') {
+            e.preventDefault()
+            toggleVideoMute()
+          } else if (e.key === 'f' || e.key === 'F') {
+            e.preventDefault()
+            toggleVideoFullscreen()
+          }
         } else if (file?.type.includes('pdf') || file?.type.includes('word') || file?.type.includes('document') || file?.type === 'text/plain') {
           // Document keyboard shortcuts
           if (e.key === '=' || e.key === '+') {
@@ -168,18 +196,23 @@ export function FilePreviewModal({
     setImageZoom(1)
     setImagePosition({ x: 0, y: 0 })
 
-    // Reset audio player states
+    // Reset audio/video player states
     setIsPlaying(false)
     setCurrentTime(0)
     setDuration(0)
     setPlaybackRate(1)
     setVolume(1)
     setIsMuted(false)
+    setIsVideoFullscreen(false)
 
     try {
       if (fileType === 'image') {
         // For images, use the preview URL directly
         setPreviewContent(preview || '')
+      } else if (fileType === 'audio' || fileType === 'video') {
+        // For audio/video files, create object URL
+        const objectUrl = URL.createObjectURL(file)
+        setPreviewContent(objectUrl)
       } else if (file.type === 'text/plain' || file.type === 'text/csv') {
         // For text files, read directly with original formatting
         const text = await readTextFile(file)
@@ -877,6 +910,72 @@ export function FilePreviewModal({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
+  // Video player functions (reuse audio functions for video)
+  const toggleVideoPlayPause = () => {
+    if (!videoRef.current) return
+
+    if (isPlaying) {
+      videoRef.current.pause()
+      setIsPlaying(false)
+    } else {
+      videoRef.current.play()
+      setIsPlaying(true)
+    }
+  }
+
+  const handleVideoSeek = (newTime: number) => {
+    if (!videoRef.current) return
+    videoRef.current.currentTime = newTime
+    setCurrentTime(newTime)
+  }
+
+  const handleVideoVolumeChange = (newVolume: number) => {
+    if (!videoRef.current) return
+    videoRef.current.volume = newVolume
+    setVolume(newVolume)
+    setIsMuted(newVolume === 0)
+  }
+
+  const toggleVideoMute = () => {
+    if (!videoRef.current) return
+
+    if (isMuted) {
+      videoRef.current.volume = volume
+      setIsMuted(false)
+    } else {
+      videoRef.current.volume = 0
+      setIsMuted(true)
+    }
+  }
+
+  const changeVideoPlaybackRate = (rate: number) => {
+    if (!videoRef.current) return
+    videoRef.current.playbackRate = rate
+    setPlaybackRate(rate)
+  }
+
+  const skipVideoTime = (seconds: number) => {
+    if (!videoRef.current) return
+    const newTime = Math.max(0, Math.min(duration, currentTime + seconds))
+    handleVideoSeek(newTime)
+  }
+
+  const toggleVideoFullscreen = () => {
+    if (!videoRef.current) return
+
+    if (!isVideoFullscreen) {
+      if (videoRef.current.requestFullscreen) {
+        videoRef.current.requestFullscreen()
+      }
+      setIsVideoFullscreen(true)
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+      }
+      setIsVideoFullscreen(false)
+    }
+  }
+
   // Throttle scroll events for better performance
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -1032,6 +1131,7 @@ export function FilePreviewModal({
   const getFileIcon = () => {
     if (fileType === 'image') return <ImageIcon className="h-5 w-5" />
     if (fileType === 'audio') return <Volume2 className="h-5 w-5" />
+    if (fileType === 'video') return <Play className="h-5 w-5" />
     return <FileText className="h-5 w-5" />
   }
 
@@ -1075,6 +1175,7 @@ export function FilePreviewModal({
               {/* Controls for all file types */}
               {(fileType === 'image' ||
                 fileType === 'audio' ||
+                fileType === 'video' ||
                 (file?.type === 'application/pdf' && pdfCanvases.length > 0) ||
                 ((file?.type.includes('word') || file?.type.includes('document')) && (htmlContent || pdfCanvases.length > 0)) ||
                 (file?.type === 'text/plain' && previewContent)) && (
@@ -1097,6 +1198,13 @@ export function FilePreviewModal({
                   {fileType === 'audio' && (
                     <span className="text-xs text-gray-500 mr-2 bg-gray-100 px-2 py-1 rounded">
                       🎵 {formatTime(currentTime)} / {formatTime(duration)} • {playbackRate}x
+                    </span>
+                  )}
+
+                  {/* Video player info */}
+                  {fileType === 'video' && (
+                    <span className="text-xs text-gray-500 mr-2 bg-gray-100 px-2 py-1 rounded">
+                      🎬 {formatTime(currentTime)} / {formatTime(duration)} • {playbackRate}x
                     </span>
                   )}
 
@@ -1227,6 +1335,69 @@ export function FilePreviewModal({
                           className="h-8 px-2 text-xs border rounded"
                           title="Tốc độ phát"
                         >
+                          <option value={0.5}>0.5x</option>
+                          <option value={0.75}>0.75x</option>
+                          <option value={1}>1x</option>
+                          <option value={1.25}>1.25x</option>
+                          <option value={1.5}>1.5x</option>
+                          <option value={2}>2x</option>
+                        </select>
+                      </>
+                    ) : fileType === 'video' ? (
+                      // Video player controls
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => skipVideoTime(-10)}
+                          className="h-8 w-8 p-0"
+                          title="Tua lùi 10s"
+                        >
+                          <Rewind className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={toggleVideoPlayPause}
+                          className="h-8 w-8 p-0"
+                          title={isPlaying ? "Dừng" : "Phát"}
+                        >
+                          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => skipVideoTime(10)}
+                          className="h-8 w-8 p-0"
+                          title="Tua tới 10s"
+                        >
+                          <FastForward className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={toggleVideoMute}
+                          className="h-8 w-8 p-0"
+                          title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+                        >
+                          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={toggleVideoFullscreen}
+                          className="h-8 w-8 p-0"
+                          title="Toàn màn hình"
+                        >
+                          {isVideoFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                        </Button>
+                        <select
+                          value={playbackRate}
+                          onChange={(e) => changeVideoPlaybackRate(Number(e.target.value))}
+                          className="h-8 px-2 text-xs border rounded"
+                          title="Tốc độ phát"
+                        >
+                          <option value={0.25}>0.25x</option>
                           <option value={0.5}>0.5x</option>
                           <option value={0.75}>0.75x</option>
                           <option value={1}>1x</option>
@@ -1478,6 +1649,157 @@ export function FilePreviewModal({
                 <p className="text-xs text-gray-500">
                   Phím tắt: Space (Phát/Dừng) • ← → (Tua) • ↑ ↓ (Âm lượng) • M (Tắt/Bật âm)
                 </p>
+              </div>
+            </div>
+          ) : fileType === 'video' && previewContent ? (
+            <div className="flex items-center justify-center h-full p-4 bg-black">
+              {/* Video Element */}
+              <video
+                ref={videoRef}
+                src={previewContent}
+                className="w-full h-full object-contain rounded-lg shadow-2xl"
+                controls={false}
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    setDuration(videoRef.current.duration)
+                  }
+                }}
+                onTimeUpdate={() => {
+                  if (videoRef.current) {
+                    setCurrentTime(videoRef.current.currentTime)
+                  }
+                }}
+                onEnded={() => {
+                  setIsPlaying(false)
+                  setCurrentTime(0)
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%'
+                }}
+              />
+
+              {/* Video Controls Overlay */}
+              <div className="absolute bottom-4 left-4 right-4 bg-black bg-opacity-70 rounded-lg p-4 text-white">
+                {/* Progress Bar */}
+                <div className="w-full bg-white bg-opacity-20 rounded-full h-2 mb-4">
+                  <div
+                    className="bg-white h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                  />
+                </div>
+
+                {/* Seek Bar */}
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  value={currentTime}
+                  onChange={(e) => handleVideoSeek(Number(e.target.value))}
+                  className="w-full h-2 bg-white bg-opacity-20 rounded-lg appearance-none cursor-pointer mb-4"
+                  style={{
+                    background: `linear-gradient(to right, white 0%, white ${duration > 0 ? (currentTime / duration) * 100 : 0}%, rgba(255,255,255,0.2) ${duration > 0 ? (currentTime / duration) * 100 : 0}%, rgba(255,255,255,0.2) 100%)`
+                  }}
+                />
+
+                {/* Control Buttons */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => skipVideoTime(-10)}
+                      className="text-white hover:bg-white hover:bg-opacity-20 h-10 w-10 p-0"
+                      title="Tua lùi 10s"
+                    >
+                      <Rewind className="h-5 w-5" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      onClick={toggleVideoPlayPause}
+                      className="text-white hover:bg-white hover:bg-opacity-20 h-12 w-12 p-0 rounded-full"
+                      title={isPlaying ? "Dừng" : "Phát"}
+                    >
+                      {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => skipVideoTime(10)}
+                      className="text-white hover:bg-white hover:bg-opacity-20 h-10 w-10 p-0"
+                      title="Tua tới 10s"
+                    >
+                      <FastForward className="h-5 w-5" />
+                    </Button>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleVideoMute}
+                        className="text-white hover:bg-white hover:bg-opacity-20 h-8 w-8 p-0"
+                        title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+                      >
+                        {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      </Button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={isMuted ? 0 : volume}
+                        onChange={(e) => handleVideoVolumeChange(Number(e.target.value))}
+                        className="w-16 h-1 bg-white bg-opacity-20 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+
+                    <select
+                      value={playbackRate}
+                      onChange={(e) => changeVideoPlaybackRate(Number(e.target.value))}
+                      className="bg-white bg-opacity-20 text-white border-0 rounded px-2 py-1 text-sm"
+                      title="Tốc độ phát"
+                    >
+                      <option value={0.25} className="text-black">0.25x</option>
+                      <option value={0.5} className="text-black">0.5x</option>
+                      <option value={0.75} className="text-black">0.75x</option>
+                      <option value={1} className="text-black">1x</option>
+                      <option value={1.25} className="text-black">1.25x</option>
+                      <option value={1.5} className="text-black">1.5x</option>
+                      <option value={2} className="text-black">2x</option>
+                    </select>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleVideoFullscreen}
+                      className="text-white hover:bg-white hover:bg-opacity-20 h-8 w-8 p-0"
+                      title="Toàn màn hình"
+                    >
+                      {isVideoFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Video Info */}
+                <div className="text-center text-gray-300 mt-2">
+                  <p className="text-xs">
+                    🎬 Video Player • Tốc độ: {playbackRate}x • {isPlaying ? "Đang phát" : "Đã dừng"}
+                  </p>
+                  <p className="text-xs opacity-75">
+                    Phím tắt: Space (Phát/Dừng) • ← → (Tua) • ↑ ↓ (Âm lượng) • F (Toàn màn hình)
+                  </p>
+                </div>
               </div>
             </div>
           ) : (file?.type === 'application/pdf' || (file?.type.includes('word') && pdfCanvases.length > 0)) && pdfCanvases.length > 0 ? (

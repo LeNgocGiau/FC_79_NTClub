@@ -3523,7 +3523,7 @@ export default function MatchSchedule({
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         // Audio formats
-        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a',
+        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/flac', 'audio/webm',
         // Video formats
         'video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov'
       ];
