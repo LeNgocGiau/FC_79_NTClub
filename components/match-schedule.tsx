@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Calendar, Clock, MapPin, Trophy, Plus, Edit, Trash2, Send, Bot, X, Upload, Image, Sparkles, Volume2, VolumeX, Smile, Star, Goal, Flag, List, Settings, Globe, Mic, Timer, ArrowUpDown, Volume, Languages, RotateCcw, Eye, Crown } from "lucide-react"
+import { Calendar, Clock, MapPin, Trophy, Plus, Edit, Trash2, Send, Bot, X, Upload, Image, Sparkles, Volume2, VolumeX, Smile, Star, Goal, Flag, List, Settings, Globe, Mic, Timer, ArrowUpDown, Volume, Languages, RotateCcw, Eye, Crown, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -18,9 +18,11 @@ import { cn } from "@/lib/utils"
 import PlayerRating from "@/components/player-rating"
 import MatchEvents, { MatchEvents as MatchEventsType } from "@/components/match-events"
 import TeamOfTheMatch from "./team-of-the-match"
+import MatchEmailNotification from "./match-email-notification"
 import { Slider } from "@/components/ui/slider"
 import { Bookmark } from "lucide-react"
 import dynamic from 'next/dynamic'
+import { useToast } from "@/hooks/use-toast"
 
 // Dynamic import to avoid SSR issues with PDF.js
 const FilePreviewModal = dynamic(() => import("@/components/ui/file-preview-modal").then(mod => ({ default: mod.FilePreviewModal })), {
@@ -193,6 +195,8 @@ export default function MatchSchedule({
   const [eventsMatch, setEventsMatch] = useState<Match | null>(null)
   const [isTeamOfTheMatchOpen, setIsTeamOfTheMatchOpen] = useState(false)
   const [teamOfTheMatchData, setTeamOfTheMatchData] = useState<Match | null>(null)
+  const [isEmailNotificationOpen, setIsEmailNotificationOpen] = useState(false)
+  const [emailNotificationMatch, setEmailNotificationMatch] = useState<Match | null>(null)
 
   // AI chat states
   const [aiQuestion, setAiQuestion] = useState("")
@@ -1478,10 +1482,31 @@ export default function MatchSchedule({
   const handleSaveMatch = () => {
     if (!editingMatch) return
 
-    if (matches.some((match) => match.id === editingMatch.id)) {
-      onUpdateMatch(editingMatch)
-    } else {
+    const isNewMatch = !matches.some((match) => match.id === editingMatch.id)
+
+    if (isNewMatch) {
       onAddMatch(editingMatch)
+
+      // Show success toast with email notification option
+      toast({
+        title: "✅ Tạo trận đấu thành công!",
+        description: `${editingMatch.homeTeam} vs ${editingMatch.awayTeam} - ${editingMatch.date}`,
+        action: (
+          <Button
+            size="sm"
+            onClick={() => handleEmailNotification(editingMatch)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            📧 Gửi thông báo
+          </Button>
+        ),
+      })
+    } else {
+      onUpdateMatch(editingMatch)
+      toast({
+        title: "✅ Cập nhật trận đấu thành công!",
+        description: `${editingMatch.homeTeam} vs ${editingMatch.awayTeam}`,
+      })
     }
 
     setIsDialogOpen(false)
@@ -4991,6 +5016,11 @@ Việc của bạn là hiểu ý định của người dùng và thực hiện 
     setIsTeamOfTheMatchOpen(true)
   }
 
+  const handleEmailNotification = (match: Match) => {
+    setEmailNotificationMatch(match)
+    setIsEmailNotificationOpen(true)
+  }
+
   const handleSaveRatings = (ratings: PlayerRatingsData) => {
     if (ratingMatch) {
       const updatedMatch = {
@@ -5105,6 +5135,9 @@ Việc của bạn là hiểu ý định của người dùng và thực hiện 
   // Missing states that are used in the component
   const [showingVoiceSettings, setShowingVoiceSettings] = useState(false)
 
+  // Toast hook
+  const { toast } = useToast()
+
   // Add animation styles when component mounts
   useEffect(() => {
     // Create a style element
@@ -5209,6 +5242,16 @@ Việc của bạn là hiểu ý định của người dùng và thực hiện 
                           )}
                         </>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 flex items-center text-xs bg-blue-50 border-blue-200 hover:bg-blue-100"
+                        onClick={() => handleEmailNotification(match)}
+                        title="Gửi thông báo email"
+                      >
+                        <Mail className="h-3 w-3 mr-1 text-blue-600" />
+                        Email
+                      </Button>
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEditMatch(match)}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -7634,6 +7677,14 @@ Việc của bạn là hiểu ý định của người dùng và thực hiện 
               })
               .filter(player => player.rating > 0) // Only include players with actual ratings
           ]}
+        />
+      )}
+
+      {/* Email Notification Modal */}
+      {isEmailNotificationOpen && emailNotificationMatch && (
+        <MatchEmailNotification
+          match={emailNotificationMatch}
+          onClose={() => setIsEmailNotificationOpen(false)}
         />
       )}
 
