@@ -31,6 +31,7 @@ interface SelectedPlayer extends Player {
   positionIndex: number // For multiple players in same position
   customX?: number // Custom X position when dragging
   customY?: number // Custom Y position when dragging
+  aiReason?: string // AI reasoning for selection
 }
 
 interface FormationConfig {
@@ -156,6 +157,8 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
   const [errorMessage, setErrorMessage] = useState<string>("")
   const [isDragMode, setIsDragMode] = useState<boolean>(false)
   const [draggedPlayer, setDraggedPlayer] = useState<string | null>(null)
+  const [isAutoSelecting, setIsAutoSelecting] = useState<boolean>(false)
+  const [aiReasoningVisible, setAiReasoningVisible] = useState<string | null>(null)
 
   // Get available formations for match field type
   const availableFormations = formations[match.fieldType] || {}
@@ -394,6 +397,199 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
     return colors[pos] || "#6B7280"
   }
 
+  // Calculate best formation based on available players
+  const determineBestFormation = () => {
+    // Default to most common formation for field type if no clear best formation
+    const fieldFormations = availableFormations || {};
+    const fieldType = match.fieldType;
+    
+    // Check player positions to determine best formation
+    const positionCounts = {
+      GK: players.filter(p => mapToFieldPosition(p.position) === "GK").length,
+      DF: players.filter(p => mapToFieldPosition(p.position) === "DF").length,
+      MF: players.filter(p => mapToFieldPosition(p.position) === "MF").length,
+      FW: players.filter(p => mapToFieldPosition(p.position) === "FW").length,
+    };
+    
+    // Find formation with best position distribution match
+    let bestMatch = "";
+    let bestScore = -1;
+    
+    Object.entries(fieldFormations).forEach(([formationKey, formation]) => {
+      const formationPositions = formation.positions;
+      let score = 0;
+      
+      // Calculate how well this formation matches our player distribution
+      // Higher score = better match
+      if (positionCounts.GK >= formationPositions.GK) score += 10; // Must have GK
+      
+      // Calculate distribution score - how well formation fits available players
+      const dfRatio = positionCounts.DF / (formationPositions.DF || 1);
+      const mfRatio = positionCounts.MF / (formationPositions.MF || 1);
+      const fwRatio = positionCounts.FW / (formationPositions.FW || 1);
+      
+      // Best formations have ratios close to 1.5-2.0 (enough players for positions plus some choices)
+      score += 5 * (dfRatio >= 1 ? Math.min(dfRatio, 2.5) : 0);
+      score += 5 * (mfRatio >= 1 ? Math.min(mfRatio, 2.5) : 0);
+      score += 5 * (fwRatio >= 1 ? Math.min(fwRatio, 2.5) : 0);
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = formationKey;
+      }
+    });
+    
+    // Fallback to first formation if no good match
+    return bestMatch || Object.keys(fieldFormations)[0] || "";
+  };
+
+  // Select best players for positions
+  const selectBestPlayers = (formation: string) => {
+    if (!formation || !availableFormations[formation]) {
+      setErrorMessage("Không thể chọn sơ đồ chiến thuật phù hợp");
+      return [];
+    }
+
+    const formationConfig = availableFormations[formation];
+    const newSelectedPlayers: SelectedPlayer[] = [];
+    const aiReasons: Record<string, string> = {};
+    
+    // Helper to generate reasoning
+    const generateReason = (player: Player, fieldPosition: string, others: Player[]): string => {
+      let reason = "";
+      
+      // Base on performance stats
+      if (player.rating >= 9) {
+        reason = `Xuất sắc với điểm số rất cao (${player.rating.toFixed(1)}/10)`;
+      } else if (player.rating >= 8) {
+        reason = `Chơi rất tốt với điểm số cao (${player.rating.toFixed(1)}/10)`;
+      } else if (player.rating >= 7) {
+        reason = `Thể hiện tốt với điểm số khá (${player.rating.toFixed(1)}/10)`;
+      } else {
+        reason = `Được chọn với điểm số ${player.rating.toFixed(1)}/10`;
+      }
+      
+      // Add goal/assist/save context
+      if (fieldPosition === "GK") {
+        if (player.saves && player.saves > 0) {
+          reason += `, cứu thua ${player.saves} lần`;
+        }
+        if (player.cleanSheet) {
+          reason += ", giữ sạch lưới";
+        }
+      } else if (fieldPosition === "DF") {
+        if (player.goals > 0) {
+          reason += `, ghi ${player.goals} bàn thắng`;
+        }
+        if (player.assists > 0) {
+          reason += `, kiến tạo ${player.assists} bàn`;
+        }
+      } else if (fieldPosition === "MF" || fieldPosition === "FW") {
+        if (player.goals > 0 && player.assists > 0) {
+          reason += `, ghi ${player.goals} bàn và kiến tạo ${player.assists} bàn`;
+        } else if (player.goals > 0) {
+          reason += `, ghi ${player.goals} bàn thắng`;
+        } else if (player.assists > 0) {
+          reason += `, kiến tạo ${player.assists} bàn`;
+        }
+      }
+      
+      // Compare with other players in same position
+      if (others.length > 0) {
+        const avgRating = others.reduce((sum, p) => sum + p.rating, 0) / others.length;
+        if (player.rating > avgRating + 1) {
+          reason += `. Nổi bật hơn ${(player.rating - avgRating).toFixed(1)} điểm so với trung bình vị trí`;
+        }
+      }
+      
+      return reason;
+    };
+    
+    // Process each position type (GK, DF, MF, FW)
+    Object.entries(formationConfig.positions).forEach(([position, count]) => {
+      if (count === 0) return;
+      
+      // Get all players for this position
+      const positionPlayers = players
+        .filter(p => mapToFieldPosition(p.position) === position)
+        .sort((a, b) => {
+          // Custom sorting logic to prioritize players
+          if (position === "GK") {
+            // For GK, prioritize saves and clean sheets
+            const aValue = a.rating + (a.cleanSheet ? 1 : 0) + (a.saves || 0) * 0.2;
+            const bValue = b.rating + (b.cleanSheet ? 1 : 0) + (b.saves || 0) * 0.2;
+            return bValue - aValue;
+          } else if (position === "DF") {
+            // For DF, rating is most important, then goals/assists as bonus
+            return (b.rating + b.goals * 0.5 + b.assists * 0.3) - 
+                   (a.rating + a.goals * 0.5 + a.assists * 0.3);
+          } else if (position === "MF") {
+            // For MF, balance between rating, goals and assists
+            return (b.rating + b.goals * 0.4 + b.assists * 0.4) - 
+                   (a.rating + a.goals * 0.4 + a.assists * 0.4);
+          } else {
+            // For FW, prioritize goals, then rating, then assists
+            return (b.rating + b.goals * 0.7 + b.assists * 0.3) - 
+                   (a.rating + a.goals * 0.7 + a.assists * 0.3);
+          }
+        });
+      
+      // Select top players for this position
+      const selectedForPosition = positionPlayers.slice(0, count);
+      const othersInPosition = positionPlayers.slice(count);
+      
+      // Add selected players with reasoning
+      selectedForPosition.forEach((player, index) => {
+        const reason = generateReason(player, position, othersInPosition);
+        aiReasons[player.id] = reason;
+        
+        newSelectedPlayers.push({
+          ...player,
+          fieldPosition: position,
+          positionIndex: index,
+          aiReason: reason
+        });
+      });
+    });
+    
+    return newSelectedPlayers;
+  };
+
+  // Handle AI auto-selection
+  const handleAutoSelection = () => {
+    setIsAutoSelecting(true);
+    
+    // Simulate AI "thinking" with a short delay
+    setTimeout(() => {
+      try {
+        // Step 1: Determine best formation
+        const bestFormation = determineBestFormation();
+        setSelectedFormation(bestFormation);
+        
+        // Step 2: Select best players for this formation
+        const bestPlayers = selectBestPlayers(bestFormation);
+        setSelectedPlayers(bestPlayers);
+        
+        // Success message
+        setErrorMessage("");
+      } catch (error) {
+        console.error("Auto-selection error:", error);
+        setErrorMessage("Không thể tự động chọn đội hình. Vui lòng thử lại.");
+      } finally {
+        setIsAutoSelecting(false);
+      }
+    }, 1000);
+  };
+
+  // Show reasoning for a player
+  const togglePlayerReasoning = (playerId: string) => {
+    if (aiReasoningVisible === playerId) {
+      setAiReasoningVisible(null);
+    } else {
+      setAiReasoningVisible(playerId);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
@@ -425,6 +621,28 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
                 </span>
               </p>
             </div>
+
+            {/* AI Auto-Selection Button */}
+            <Button
+              onClick={handleAutoSelection}
+              disabled={isAutoSelecting || players.length === 0}
+              className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-md transition-all duration-300"
+            >
+              {isAutoSelecting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  AI đang phân tích...
+                </>
+              ) : (
+                <>
+                  <Crown className="h-4 w-4 mr-2" />
+                  AI tự động chọn đội hình xuất sắc
+                </>
+              )}
+            </Button>
 
             {/* Formation Selection */}
             <div className="space-y-2">
@@ -504,6 +722,7 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
                 {sortedPlayers.map((player, index) => {
                   const isSelected = selectedPlayers.find(p => p.id === player.id)
                   const { canAdd } = canAddPlayer(player)
+                  const hasAiReason = isSelected && isSelected.aiReason;
 
                   return (
                     <div
@@ -517,7 +736,13 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
                               : "bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300 hover:from-purple-100 hover:to-pink-100 hover:border-purple-500 hover:shadow-lg"
                             : "bg-gradient-to-r from-gray-100 to-slate-100 border-gray-300 opacity-60 cursor-not-allowed"
                       }`}
-                      onClick={() => !isSelected && canAdd && addPlayer(player)}
+                      onClick={() => {
+                        if (isSelected && hasAiReason) {
+                          togglePlayerReasoning(player.id);
+                        } else if (!isSelected && canAdd) {
+                          addPlayer(player);
+                        }
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative">
@@ -566,6 +791,17 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-base truncate text-gray-900">{player.name}</div>
                           <div className="text-sm text-gray-600 font-medium">{player.teamName}</div>
+                          
+                          {/* AI Reasoning Badge - only show if player was selected by AI */}
+                          {hasAiReason && (
+                            <Badge variant="outline" className="mt-1 text-xs cursor-pointer" onClick={(e) => {
+                              e.stopPropagation();
+                              togglePlayerReasoning(player.id);
+                            }}>
+                              <Crown className="h-3 w-3 mr-1 text-purple-500" />
+                              {aiReasoningVisible === player.id ? "Ẩn" : "lý Do"}
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-right">
                           <div className="flex items-center gap-1 mb-1">
@@ -590,6 +826,17 @@ export default function TeamOfTheMatch({ isOpen, onClose, onSave, match, players
                           </Button>
                         )}
                       </div>
+                      
+                      {/* AI Reasoning Explanation - expanded view */}
+                      {hasAiReason && aiReasoningVisible === player.id && (
+                        <div className="mt-2 pt-2 border-t border-green-200 text-sm text-gray-700">
+                          <div className="flex items-center gap-1 text-purple-700 font-medium mb-1">
+                            <Crown className="h-3.5 w-3.5" />
+                            <span>Lý do AI chọn:</span>
+                          </div>
+                          <p className="ml-5">{isSelected.aiReason}</p>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
