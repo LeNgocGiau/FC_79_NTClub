@@ -40,6 +40,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+4. Link demo:
+[https://fc-79-nhatrang-club.vercel.app]  
+   
+
 ## Technologies Used
 
 - Next.js 15
